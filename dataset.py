@@ -9,19 +9,45 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 from torchvision.datasets import CelebA
 import zipfile
+from torchvision.io import read_image
+import torchvision.transforms as T
 
 
 # Add your custom dataset class here
-class MyDataset(Dataset):
-    def __init__(self):
-        pass
+class RPLanDataset(Dataset):
+    def __init__(self, path, patch_size, split):
+        self.path = path
+        self.patch_size = patch_size
+
+        self.transform = T.Resize(size = (patch_size, patch_size))
+
+        file_names = []
+        with open(path + "/good_examples.txt") as f:
+            lines = f.readlines()
+            for line in lines:
+                if len(line.split()) == 2:
+                    file_name, conf = line.split()
+                    if file_name.lower().endswith(('.png', '.jpeg')) and float(conf) >= 0.99:
+                        file_names.append(file_name)
+
+        self.file_names = file_names[:int(len(file_names) * 0.75)] if split == "train" else file_names[int(len(file_names) * 0.75):]
     
     
     def __len__(self):
-        pass
+        return len(self.file_names)
     
     def __getitem__(self, idx):
-        pass
+        path = self.path + "/plans/" + self.file_names[idx]
+        img = read_image(path)
+        if img.shape[0] == 2:
+            img = torch.unsqueeze(img[0], dim=0)
+            img = torch.concatenate([img]*3, axis=0)
+        elif img.shape[0] == 4:
+            img = img[:3, : :]
+        elif img.shape[0] == 1:
+            img = torch.concatenate([img]*3, axis=0)
+        img = self.transform(img).float()
+        return img, 0.0
 
 
 class MyCelebA(CelebA):
@@ -89,6 +115,7 @@ class VAEDataset(LightningDataModule):
         **kwargs,
     ):
         super().__init__()
+        print(patch_size)
 
         self.data_dir = data_path
         self.train_batch_size = train_batch_size
@@ -136,20 +163,33 @@ class VAEDataset(LightningDataModule):
                                             transforms.Resize(self.patch_size),
                                             transforms.ToTensor(),])
         
-        self.train_dataset = MyCelebA(
+        self.train_dataset = RPLanDataset(
             self.data_dir,
+            self.patch_size,
             split='train',
-            transform=train_transforms,
-            download=False,
         )
         
         # Replace CelebA with your dataset
-        self.val_dataset = MyCelebA(
+        self.val_dataset = RPLanDataset(
             self.data_dir,
+            self.patch_size,
             split='test',
-            transform=val_transforms,
-            download=False,
         )
+
+        # self.train_dataset = MyCelebA(
+        #     self.data_dir,
+        #     split='train',
+        #     transform=train_transforms,
+        #     download=False,
+        # )
+        
+        # # Replace CelebA with your dataset
+        # self.val_dataset = MyCelebA(
+        #     self.data_dir,
+        #     split='test',
+        #     transform=val_transforms,
+        #     download=False,
+        # )
 #       ===============================================================
         
     def train_dataloader(self) -> DataLoader:
