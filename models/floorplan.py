@@ -8,7 +8,7 @@ from .types_ import *
 class FloorplanVAE(BaseVAE):
     def __init__(self, in_channels: int, model: BaseVAE, **kwargs) -> None:
         super(FloorplanVAE, self).__init__()
-        print(model)
+        self.latent_dim = model.latent_dim
         self.encoder = nn.Sequential(
             nn.Conv2d(in_channels, out_channels=64, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(64),
@@ -39,13 +39,26 @@ class FloorplanVAE(BaseVAE):
             nn.BatchNorm2d(64),
             nn.LeakyReLU(),
             nn.ConvTranspose2d(
-                64, 256, kernel_size=3, stride=2, padding=1, output_padding=1
+                64, 32, kernel_size=3, stride=2, padding=1, output_padding=1
             ),
-            nn.BatchNorm2d(256),
+            nn.BatchNorm2d(32),
             nn.LeakyReLU(),
         )
 
-        self.final_layer = model.final_layer
+        self.final_layer = nn.Sequential(
+            nn.ConvTranspose2d(
+                32,
+                16,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                output_padding=1,
+            ),
+            nn.BatchNorm2d(16),
+            nn.LeakyReLU(),
+            nn.Conv2d(16, out_channels=3, kernel_size=3, padding=1),
+            nn.Tanh(),
+        )
 
     def encode(self, input: Tensor) -> List[Tensor]:
         """
@@ -72,7 +85,7 @@ class FloorplanVAE(BaseVAE):
         :return: (Tensor) [B x C x H x W]
         """
         result = self.decoder_input(z)
-        result = result.view(64, -1, 2, 2)
+        result = result.view(-1, 1024, 2, 2)
         result = self.decoder(result)
         result = self.final_layer(result)
         return result
