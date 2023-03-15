@@ -17,8 +17,8 @@ class FloorplanVAE(BaseVAE):
             nn.Conv2d(64, out_channels=32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
             nn.LeakyReLU(),
-            nn.Conv2d(32, out_channels=3, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(3),
+            nn.Conv2d(32, out_channels=in_channels, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(in_channels),
             nn.LeakyReLU(),
             model.encoder,
         )

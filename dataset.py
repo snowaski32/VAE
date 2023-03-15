@@ -27,14 +27,15 @@ class RPLanDataset(Dataset):
             with open(load_path + "/list.txt") as f:
                 lines = f.read().split('\n')
                 for line in lines:
-                    file_names.append(line)
+                    if line != '':
+                        file_names.append(line)
         else:
             with open(load_path + "/good_examples.txt") as f:
                 lines = f.readlines()
                 for line in lines:
                     if len(line.split()) == 2:
                         file_name, conf = line.split()
-                        
+                        print(file_name)
                         if (
                             file_name.lower().endswith((".png", ".jpeg"))
                         ):
@@ -62,8 +63,12 @@ class RPLanDataset(Dataset):
         return len(self.file_names)
 
     def __getitem__(self, idx):
-        path = self.load_path + "/plans/" + self.file_names[idx]
-        img = read_image(path)
+        try:
+            path = self.load_path + "/plans/" + self.file_names[idx]
+            img = read_image(path)
+        except:
+            print("********************", self.file_names[idx])
+            stop[0]
         # if img.shape[0] == 2:
         #     img = torch.unsqueeze(img[0], dim=0)
         #     img = torch.concatenate([img]*3, axis=0)
