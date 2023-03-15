@@ -11,87 +11,114 @@ from torchvision.datasets import CelebA
 import zipfile
 from torchvision.io import read_image
 import torchvision.transforms as T
+import numpy as np
 
 
 # Add your custom dataset class here
 class RPLanDataset(Dataset):
-    def __init__(self, path, patch_size, split):
-        self.path = path
+    def __init__(self, load_path, path, patch_size, split):
+        self.load_path = load_path
         self.patch_size = patch_size
 
-        self.transform = T.Resize(size = (patch_size, patch_size))
+        self.transform = T.Resize(size=(patch_size, patch_size))
 
         file_names = []
-        with open(path + "/good_examples.txt") as f:
-            lines = f.readlines()
-            for line in lines:
-                if len(line.split()) == 2:
-                    file_name, conf = line.split()
-                    if file_name.lower().endswith(('.png', '.jpeg')) and float(conf) >= 0.99:
-                        file_names.append(file_name)
+        if os.path.exists(load_path + "/list.txt"):
+            with open(load_path + "/list.txt") as f:
+                lines = f.read().split('\n')
+                for line in lines:
+                    file_names.append(line)
+        else:
+            with open(load_path + "/good_examples.txt") as f:
+                lines = f.readlines()
+                for line in lines:
+                    if len(line.split()) == 2:
+                        file_name, conf = line.split()
+                        
+                        if (
+                            file_name.lower().endswith((".png", ".jpeg"))
+                        ):
+                            img = read_image(load_path + "/plans/" + file_name)
+                            if (
+                                float(conf) >= 0.99
+                                and img.shape[1] <= 600
+                                and img.shape[2] <= 600
+                                and img.shape[0] == 1
+                            ):
+                                file_names.append(file_name)
+        
+            with open(load_path + '/list.txt', 'w') as f:
+                f.writelines(name + '\n' for name in file_names)
 
-        self.file_names = file_names[:int(len(file_names) * 0.75)] if split == "train" else file_names[int(len(file_names) * 0.75):]
-    
-    
+        self.file_names = (
+            file_names[: int(len(file_names) * 0.75)]
+            if split == "train"
+            else file_names[int(len(file_names) * 0.75) :]
+        )
+
+        self.file_names = file_names
+
     def __len__(self):
         return len(self.file_names)
-    
+
     def __getitem__(self, idx):
-        path = self.path + "/plans/" + self.file_names[idx]
+        path = self.load_path + "/plans/" + self.file_names[idx]
         img = read_image(path)
-        if img.shape[0] == 2:
-            img = torch.unsqueeze(img[0], dim=0)
-            img = torch.concatenate([img]*3, axis=0)
-        elif img.shape[0] == 4:
-            img = img[:3, : :]
-        elif img.shape[0] == 1:
-            img = torch.concatenate([img]*3, axis=0)
+        # if img.shape[0] == 2:
+        #     img = torch.unsqueeze(img[0], dim=0)
+        #     img = torch.concatenate([img]*3, axis=0)
+        # elif img.shape[0] == 4:
+        #     img = img[:3, : :]
+        # elif img.shape[0] == 1:
+        #     img = torch.concatenate([img]*3, axis=0)
         img = self.transform(img).float()
         return img, 0.0
+
 
 
 class MyCelebA(CelebA):
     """
     A work-around to address issues with pytorch's celebA dataset class.
-    
+
     Download and Extract
     URL : https://drive.google.com/file/d/1m8-EBPgi5MRubrm6iQjafK2QMHDBMSfJ/view?usp=sharing
     """
-    
+
     def _check_integrity(self) -> bool:
         return True
-    
-    
+
 
 class OxfordPets(Dataset):
     """
     URL = https://www.robots.ox.ac.uk/~vgg/data/pets/
     """
-    def __init__(self, 
-                 data_path: str, 
-                 split: str,
-                 transform: Callable,
-                **kwargs):
-        self.data_dir = Path(data_path) / "OxfordPets"        
+
+    def __init__(self, data_path: str, split: str, transform: Callable, **kwargs):
+        self.data_dir = Path(data_path) / "OxfordPets"
         self.transforms = transform
-        imgs = sorted([f for f in self.data_dir.iterdir() if f.suffix == '.jpg'])
-        
-        self.imgs = imgs[:int(len(imgs) * 0.75)] if split == "train" else imgs[int(len(imgs) * 0.75):]
-    
+        imgs = sorted([f for f in self.data_dir.iterdir() if f.suffix == ".jpg"])
+
+        self.imgs = (
+            imgs[: int(len(imgs) * 0.75)]
+            if split == "train"
+            else imgs[int(len(imgs) * 0.75) :]
+        )
+
     def __len__(self):
         return len(self.imgs)
-    
+
     def __getitem__(self, idx):
         img = default_loader(self.imgs[idx])
-        
+
         if self.transforms is not None:
             img = self.transforms(img)
-        
-        return img, 0.0 # dummy datat to prevent breaking 
+
+        return img, 0.0  # dummy datat to prevent breaking
+
 
 class VAEDataset(LightningDataModule):
     """
-    PyTorch Lightning data module 
+    PyTorch Lightning data module
 
     Args:
         data_dir: root directory of your dataset.
@@ -107,6 +134,7 @@ class VAEDataset(LightningDataModule):
     def __init__(
         self,
         data_path: str,
+        save_path: str,
         train_batch_size: int = 8,
         val_batch_size: int = 8,
         patch_size: Union[int, Sequence[int]] = (256, 256),
@@ -123,57 +151,68 @@ class VAEDataset(LightningDataModule):
         self.patch_size = patch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.save_path = save_path
 
     def setup(self, stage: Optional[str] = None) -> None:
-#       =========================  OxfordPets Dataset  =========================
-            
-#         train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-#                                               transforms.CenterCrop(self.patch_size),
-# #                                               transforms.Resize(self.patch_size),
-#                                               transforms.ToTensor(),
-#                                                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
-        
-#         val_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-#                                             transforms.CenterCrop(self.patch_size),
-# #                                             transforms.Resize(self.patch_size),
-#                                             transforms.ToTensor(),
-#                                               transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+        #       =========================  OxfordPets Dataset  =========================
 
-#         self.train_dataset = OxfordPets(
-#             self.data_dir,
-#             split='train',
-#             transform=train_transforms,
-#         )
-        
-#         self.val_dataset = OxfordPets(
-#             self.data_dir,
-#             split='val',
-#             transform=val_transforms,
-#         )
-        
-#       =========================  CelebA Dataset  =========================
-    
-        train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-                                              transforms.CenterCrop(148),
-                                              transforms.Resize(self.patch_size),
-                                              transforms.ToTensor(),])
-        
-        val_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
-                                            transforms.CenterCrop(148),
-                                            transforms.Resize(self.patch_size),
-                                            transforms.ToTensor(),])
-        
+        #         train_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
+        #                                               transforms.CenterCrop(self.patch_size),
+        # #                                               transforms.Resize(self.patch_size),
+        #                                               transforms.ToTensor(),
+        #                                                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+
+        #         val_transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
+        #                                             transforms.CenterCrop(self.patch_size),
+        # #                                             transforms.Resize(self.patch_size),
+        #                                             transforms.ToTensor(),
+        #                                               transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))])
+
+        #         self.train_dataset = OxfordPets(
+        #             self.data_dir,
+        #             split='train',
+        #             transform=train_transforms,
+        #         )
+
+        #         self.val_dataset = OxfordPets(
+        #             self.data_dir,
+        #             split='val',
+        #             transform=val_transforms,
+        #         )
+
+        #       =========================  CelebA Dataset  =========================
+
+        train_transforms = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                transforms.CenterCrop(148),
+                transforms.Resize(self.patch_size),
+                transforms.ToTensor(),
+            ]
+        )
+
+        val_transforms = transforms.Compose(
+            [
+                transforms.RandomHorizontalFlip(),
+                transforms.CenterCrop(148),
+                transforms.Resize(self.patch_size),
+                transforms.ToTensor(),
+            ]
+        )
+
         self.train_dataset = RPLanDataset(
             self.data_dir,
+            self.save_path,
             self.patch_size,
-            split='train',
+            split="train",
         )
-        
+
         # Replace CelebA with your dataset
         self.val_dataset = RPLanDataset(
             self.data_dir,
+            self.save_path,
             self.patch_size,
-            split='test',
+            split="test",
         )
 
         # self.train_dataset = MyCelebA(
@@ -182,7 +221,7 @@ class VAEDataset(LightningDataModule):
         #     transform=train_transforms,
         #     download=False,
         # )
-        
+
         # # Replace CelebA with your dataset
         # self.val_dataset = MyCelebA(
         #     self.data_dir,
@@ -190,8 +229,9 @@ class VAEDataset(LightningDataModule):
         #     transform=val_transforms,
         #     download=False,
         # )
-#       ===============================================================
-        
+
+    #       ===============================================================
+
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
@@ -209,7 +249,7 @@ class VAEDataset(LightningDataModule):
             shuffle=False,
             pin_memory=self.pin_memory,
         )
-    
+
     def test_dataloader(self) -> Union[DataLoader, List[DataLoader]]:
         return DataLoader(
             self.val_dataset,
@@ -218,4 +258,3 @@ class VAEDataset(LightningDataModule):
             shuffle=True,
             pin_memory=self.pin_memory,
         )
-     

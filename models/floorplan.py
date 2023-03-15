@@ -3,6 +3,7 @@ from models import BaseVAE
 from torch import nn
 from torch.nn import functional as F
 from .types_ import *
+import torchvision.utils as vutils
 
 
 class FloorplanVAE(BaseVAE):
@@ -56,7 +57,7 @@ class FloorplanVAE(BaseVAE):
             ),
             nn.BatchNorm2d(16),
             nn.LeakyReLU(),
-            nn.Conv2d(16, out_channels=3, kernel_size=3, padding=1),
+            nn.Conv2d(16, out_channels=in_channels, kernel_size=3, padding=1),
             nn.Tanh(),
         )
 
@@ -155,5 +156,4 @@ class FloorplanVAE(BaseVAE):
         :param x: (Tensor) [B x C x H x W]
         :return: (Tensor) [B x C x H x W]
         """
-
         return self.forward(x)[0]

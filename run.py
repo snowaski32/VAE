@@ -48,6 +48,7 @@ model = f.FloorplanVAE(config['model_params']['in_channels'], model)
 
 experiment = VAEXperiment(model, config["exp_params"])
 
+print(config["data_params"])
 data = VAEDataset(
     **config["data_params"], pin_memory=len(config["trainer_params"]["gpus"]) != 0
 )
