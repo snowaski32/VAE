@@ -10,6 +10,7 @@ from torchvision import transforms
 import torchvision.utils as vutils
 from torchvision.datasets import CelebA
 from torch.utils.data import DataLoader
+import time
 
 
 class VAEXperiment(pl.LightningModule):
@@ -42,7 +43,6 @@ class VAEXperiment(pl.LightningModule):
                                               batch_idx = batch_idx)
 
         self.log_dict({key: val.item() for key, val in train_loss.items()}, sync_dist=True)
-
         return train_loss['loss']
 
     def validation_step(self, batch, batch_idx, optimizer_idx = 0):
@@ -60,6 +60,7 @@ class VAEXperiment(pl.LightningModule):
         
     def on_validation_end(self) -> None:
         self.sample_images()
+
         
     def sample_images(self):
         # Get sample reconstruction image            
@@ -78,7 +79,7 @@ class VAEXperiment(pl.LightningModule):
                                         f"true_{self.logger.name}.png"),
                             normalize=True)
         recons = self.model.generate(test_input, labels = test_label)
-        print(recons[0].shape)
+        print(recons[0].shape) 
         vutils.save_image(recons.data[0],
                           os.path.join(self.logger.log_dir , 
                                        "Reconstructions", 

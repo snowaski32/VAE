@@ -2,7 +2,7 @@ model_params:
   name: 'VanillaVAE'
   in_channels: 3
   latent_dim: 512
-  hidden_dims: [256, 128, 256, 512, 1024]
+  hidden_dims: [64, 128, 256, 512]
 
 
 data_params:

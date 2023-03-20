@@ -50,6 +50,7 @@ class RPLanDataset(Dataset):
                                 and img.shape[2] <= 600
                             ):
                                 file_names.append(file_name)
+                                break
 
             print(len(file_names))
         

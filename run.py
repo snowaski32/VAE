@@ -44,7 +44,7 @@ seed_everything(config["exp_params"]["manual_seed"], True)
 
 model = vae_models[config["model_params"]["name"]](**config["model_params"])
 
-model = f.FloorplanVAE(config['model_params']['in_channels'], model)
+# model = f.FloorplanVAE(config['model_params']['in_channels'], model)
 
 experiment = VAEXperiment(model, config["exp_params"])
 
