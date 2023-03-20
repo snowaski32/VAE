@@ -3,7 +3,10 @@ from models import BaseVAE
 from torch import nn
 from torch.nn import functional as F
 from .types_ import *
+import cv2 as cv
+import numpy as np
 import torchvision.utils as vutils
+from . import canny
 
 
 class FloorplanVAE(BaseVAE):
@@ -11,14 +14,14 @@ class FloorplanVAE(BaseVAE):
         super(FloorplanVAE, self).__init__()
         self.latent_dim = model.latent_dim
         self.encoder = nn.Sequential(
-            nn.Conv2d(in_channels, out_channels=64, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(in_channels, out_channels=128, kernel_size=3, stride=2, padding=1),
+            nn.BatchNorm2d(128),
+            nn.LeakyReLU(),
+            nn.Conv2d(128, out_channels=64, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(64),
             nn.LeakyReLU(),
             nn.Conv2d(64, out_channels=32, kernel_size=3, stride=2, padding=1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
-            nn.Conv2d(32, out_channels=in_channels, kernel_size=3, stride=2, padding=1),
-            nn.BatchNorm2d(in_channels),
             nn.LeakyReLU(),
             model.encoder,
         )
@@ -120,6 +123,14 @@ class FloorplanVAE(BaseVAE):
         input = args[1]
         mu = args[2]
         log_var = args[3]
+
+        # input = self.canny(input)[-1]
+        # recons = self.canny(recons)[-1]
+
+        # print(input)
+        # print(input[-1].shape)
+        # vutils.save_image(input[-1][0], "test.png")
+        # print(recons[-1].shape)
 
         kld_weight = kwargs["M_N"]  # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)

@@ -68,13 +68,23 @@ class VAEXperiment(pl.LightningModule):
         test_label = test_label.to(self.curr_device)
 
 #         test_input, test_label = batch
+        # print(test_input[0].shape)
+        if not os.path.exists(os.path.join(self.logger.log_dir , 
+                                       "Reconstructions", 
+                                       f"true_{self.logger.name}.png")):
+            vutils.save_image(test_input[0],
+                            os.path.join(self.logger.log_dir , 
+                                        "Reconstructions", 
+                                        f"true_{self.logger.name}.png"),
+                            normalize=True)
         recons = self.model.generate(test_input, labels = test_label)
-        vutils.save_image(recons.data,
+        print(recons[0].shape)
+        vutils.save_image(recons.data[0],
                           os.path.join(self.logger.log_dir , 
                                        "Reconstructions", 
                                        f"recons_{self.logger.name}_Epoch_{self.current_epoch}.png"),
-                          normalize=True,
-                          nrow=12)
+                          normalize=True)
+
 
         try:
             samples = self.model.sample(1,
@@ -84,8 +94,7 @@ class VAEXperiment(pl.LightningModule):
                               os.path.join(self.logger.log_dir , 
                                            "Samples",      
                                            f"{self.logger.name}_Epoch_{self.current_epoch}.png"),
-                              normalize=True,
-                              nrow=12)
+                              normalize=True)
         except Warning:
             pass
 

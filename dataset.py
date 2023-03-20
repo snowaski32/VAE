@@ -6,21 +6,25 @@ from typing import List, Optional, Sequence, Union, Any, Callable
 from torchvision.datasets.folder import default_loader
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
-from torchvision import transforms
+import torchvision 
 from torchvision.datasets import CelebA
 import zipfile
 from torchvision.io import read_image
 import torchvision.transforms as T
 import numpy as np
+import cv2 as cv
+from PIL import Image
+from models import canny
 
 
 # Add your custom dataset class here
 class RPLanDataset(Dataset):
-    def __init__(self, load_path, path, patch_size, split):
+    def __init__(self, load_path, transforms, patch_size, split):
         self.load_path = load_path
         self.patch_size = patch_size
 
-        self.transform = T.Resize(size=(patch_size, patch_size))
+        self.transform1 = T.Resize((self.patch_size, self.patch_size))
+        self.transform2 = T.ToTensor()
 
         file_names = []
         if os.path.exists(load_path + "/list.txt"):
@@ -44,31 +48,34 @@ class RPLanDataset(Dataset):
                                 float(conf) >= 0.99
                                 and img.shape[1] <= 600
                                 and img.shape[2] <= 600
-                                and img.shape[0] == 1
                             ):
                                 file_names.append(file_name)
+
+            print(len(file_names))
         
             with open(load_path + '/list.txt', 'w') as f:
                 f.writelines(name + '\n' for name in file_names)
 
-        self.file_names = (
-            file_names[: int(len(file_names) * 0.75)]
-            if split == "train"
-            else file_names[int(len(file_names) * 0.75) :]
-        )
+        # self.file_names = (
+        #     file_names[: int(len(file_names) * 0.75)]
+        #     if split == "train"
+        #     else file_names[int(len(file_names) * 0.75) :]
+        # )
 
-        self.file_names = file_names
+        self.file_names = file_names[:1]
 
     def __len__(self):
         return len(self.file_names)
 
     def __getitem__(self, idx):
-        try:
-            path = self.load_path + "/plans/" + self.file_names[idx]
-            img = read_image(path)
-        except:
-            print("********************", self.file_names[idx])
-            stop[0]
+        path = self.load_path + "/plans/" + self.file_names[idx]
+
+        # with open(path, "rb") as f:
+        img = default_loader(path)
+        # img = cv.Canny(img, 100, 200)
+        img = self.transform2(img)
+        img = self.transform1(img)
+        return img, 0.0
         # if img.shape[0] == 2:
         #     img = torch.unsqueeze(img[0], dim=0)
         #     img = torch.concatenate([img]*3, axis=0)
@@ -76,8 +83,7 @@ class RPLanDataset(Dataset):
         #     img = img[:3, : :]
         # elif img.shape[0] == 1:
         #     img = torch.concatenate([img]*3, axis=0)
-        img = self.transform(img).float()
-        return img, 0.0
+        
 
 
 
@@ -187,27 +193,17 @@ class VAEDataset(LightningDataModule):
 
         #       =========================  CelebA Dataset  =========================
 
-        train_transforms = transforms.Compose(
+        transforms = T.Compose(
             [
-                transforms.RandomHorizontalFlip(),
-                transforms.CenterCrop(148),
-                transforms.Resize(self.patch_size),
-                transforms.ToTensor(),
-            ]
-        )
+                T.ToTensor(),
+                T.Resize(self.patch_size),
 
-        val_transforms = transforms.Compose(
-            [
-                transforms.RandomHorizontalFlip(),
-                transforms.CenterCrop(148),
-                transforms.Resize(self.patch_size),
-                transforms.ToTensor(),
             ]
         )
 
         self.train_dataset = RPLanDataset(
             self.data_dir,
-            self.save_path,
+            transforms,
             self.patch_size,
             split="train",
         )
@@ -215,7 +211,7 @@ class VAEDataset(LightningDataModule):
         # Replace CelebA with your dataset
         self.val_dataset = RPLanDataset(
             self.data_dir,
-            self.save_path,
+            transforms,
             self.patch_size,
             split="test",
         )
