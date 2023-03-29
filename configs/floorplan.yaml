@@ -1,29 +1,28 @@
 model_params:
   name: 'VanillaVAE'
-  in_channels: 3
+  in_channels: 1
   latent_dim: 512
-  hidden_dims: [64, 128, 256, 512]
 
 
 data_params:
-  data_path: "/home/ec2-user/.floorplans"
+  data_path: "images/"
   save_path: "datasets/imgs"
-  train_batch_size: 1
-  val_batch_size:  1
+  train_batch_size: 64
+  val_batch_size:  64
   patch_size: 512
   num_workers: 16
 
 
 exp_params:
-  LR: 0.005
+  LR: 0.003
   weight_decay: 0.0
-  scheduler_gamma: 0.95
+  scheduler_gamma: 0.97
   kld_weight: 0.00025
   manual_seed: 1265
 
 trainer_params:
   gpus: [0]
-  max_epochs: 100
+  max_epochs: 500
 
 logging_params:
   save_dir: "logs/"

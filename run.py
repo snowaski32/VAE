@@ -58,14 +58,15 @@ runner = Trainer(
     logger=tb_logger,
     callbacks=[
         LearningRateMonitor(),
-        ModelCheckpoint(
-            save_top_k=2,
-            dirpath=os.path.join(tb_logger.log_dir, "checkpoints"),
-            monitor="val_loss",
-            save_last=True,
-        ),
+        # ModelCheckpoint(
+        #     save_top_k=2,
+        #     dirpath=os.path.join(tb_logger.log_dir, "checkpoints"),
+        #     monitor="val_loss",
+        #     save_last=True,
+        # ),
     ],
     strategy=DDPStrategy(find_unused_parameters=False),
+    enable_checkpointing=False,
     **config["trainer_params"],
 )
 

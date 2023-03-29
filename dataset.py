@@ -15,76 +15,37 @@ import numpy as np
 import cv2 as cv
 from PIL import Image
 from models import canny
+import pytesseract as tes
 
 
 # Add your custom dataset class here
 class RPLanDataset(Dataset):
     def __init__(self, load_path, transforms, patch_size, split):
         self.load_path = load_path
-        self.patch_size = patch_size
 
-        self.transform1 = T.Resize((self.patch_size, self.patch_size))
-        self.transform2 = T.ToTensor()
+        self.transform = T.ToTensor()
 
         file_names = []
-        if os.path.exists(load_path + "/list.txt"):
-            with open(load_path + "/list.txt") as f:
-                lines = f.read().split('\n')
-                for line in lines:
-                    if line != '':
-                        file_names.append(line)
-        else:
-            with open(load_path + "/good_examples.txt") as f:
-                lines = f.readlines()
-                for line in lines:
-                    if len(line.split()) == 2:
-                        file_name, conf = line.split()
-                        print(file_name)
-                        if (
-                            file_name.lower().endswith((".png", ".jpeg"))
-                        ):
-                            img = read_image(load_path + "/plans/" + file_name)
-                            if (
-                                float(conf) >= 0.99
-                                and img.shape[1] <= 600
-                                and img.shape[2] <= 600
-                            ):
-                                file_names.append(file_name)
-                                break
+        for file in os.listdir(load_path):
+            if 'png' in load_path + file:
+                file_names.append(load_path + file)
 
-            print(len(file_names))
-        
-            with open(load_path + '/list.txt', 'w') as f:
-                f.writelines(name + '\n' for name in file_names)
+        self.file_names = (
+            file_names[: int(len(file_names) * 0.75)]
+            if split == "train"
+            else file_names[int(len(file_names) * 0.75) :]
+        )
 
-        # self.file_names = (
-        #     file_names[: int(len(file_names) * 0.75)]
-        #     if split == "train"
-        #     else file_names[int(len(file_names) * 0.75) :]
-        # )
-
-        self.file_names = file_names[:1]
+        self.file_names = file_names
 
     def __len__(self):
         return len(self.file_names)
 
     def __getitem__(self, idx):
-        path = self.load_path + "/plans/" + self.file_names[idx]
+        img = default_loader(self.file_names[idx])
+        img = self.transform(img)
 
-        # with open(path, "rb") as f:
-        img = default_loader(path)
-        # img = cv.Canny(img, 100, 200)
-        img = self.transform2(img)
-        img = self.transform1(img)
         return img, 0.0
-        # if img.shape[0] == 2:
-        #     img = torch.unsqueeze(img[0], dim=0)
-        #     img = torch.concatenate([img]*3, axis=0)
-        # elif img.shape[0] == 4:
-        #     img = img[:3, : :]
-        # elif img.shape[0] == 1:
-        #     img = torch.concatenate([img]*3, axis=0)
-        
 
 
 
