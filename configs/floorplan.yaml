@@ -5,7 +5,7 @@ model_params:
 
 
 data_params:
-  data_path: "images/"
+  data_path: "images/with_dilation/"
   save_path: "datasets/imgs"
   train_batch_size: 64
   val_batch_size:  64
